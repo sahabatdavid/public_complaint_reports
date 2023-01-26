@@ -49,7 +49,8 @@ class MasyarakatController extends ConnectPDO {
                  */
                 if ($password == $confirm_password) {
 
-                    $encrypted_password = password_hash($password, PASSWORD_DEFAULT);
+                    $hash_password = password_hash($password, PASSWORD_BCRYPT);
+                    $encrypted_password = crypt($password, $hash_password);
 
                     $query = "INSERT INTO masyarakat (nik, nama, username, password, telp) VALUES ('$nik', '$nama', '$username', '$encrypted_password', '$telp')";
                     $register = $this->pdo->prepare($query);
@@ -68,10 +69,68 @@ class MasyarakatController extends ConnectPDO {
             }
         }
     }
+
+    public function login($request) {
+        $nik        = $request['nik'];
+        $password   = $request['password'];
+
+        // Check NIK
+        $query = "SELECT * FROM masyarakat WHERE nik = '$nik'";
+        $nik_check = $this->pdo->prepare($query);
+        $nik_check->execute();
+        $nik_result = $nik_check->fetch(PDO::FETCH_OBJ);
+
+        $data = [
+            'password'  => $password,
+            'hash'      => $nik_result->password,
+            'verify'    => password_verify($password, $nik_result->password)
+        ];
+
+        var_dump($data);
+
+        if (!$nik_result) {
+            echo "<script>
+                alert('NIK yang anda masukan tidak sesuai!')
+                window.location.href='view/masyarakat/register.php'
+                </script>";
+        } else {
+            if (password_verify($password, $nik_result->password)) {
+                session_start();
+                $_SESSION['auth'] = $nik_result->nama;
+                header('Location: view/dashboard.php');
+            } else {
+                echo "<script>
+                alert('Password yang anda masukan tidak sesuai!')
+                </script>";
+            }
+        }
+    }
+
+    /**
+     * 
+     */
+
+    public function logout()
+    {
+        session_destroy();
+        
+        echo "<script>
+            alert('Telah berhasil logout!')
+            window.location.href='view/masyarakat/index.php'
+            </script>";
+    }
 }
 
 $masyarakat = new MasyarakatController();
 
 if (isset($_POST['register'])) {
     $masyarakat->register($_POST);
+}
+
+if (isset($_POST['login'])) {
+    $masyarakat->login($_POST);
+}
+
+if (isset($_POST['logout'])) {
+    $masyarakat->logout();
 }
